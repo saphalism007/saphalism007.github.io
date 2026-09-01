@@ -9,7 +9,7 @@
  * there is no signal. Icons and the manifest rarely change, so they are served
  * from the cache first.
  */
-const CACHE = "saphal-dictionary-v5";
+const CACHE = "saphal-dictionary-v6";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
