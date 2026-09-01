@@ -1,0 +1,20 @@
+{
+  "name": "Saphal's Dictionary",
+  "short_name": "Dictionary",
+  "description": "An advanced English dictionary with Nepali pronunciation and meaning, plus 2000 idioms and phrases, saved words, review and quizzes.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "books", "reference"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
