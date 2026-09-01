@@ -9,7 +9,7 @@
  * there is no signal. Icons and the manifest rarely change, so they are served
  * from the cache first.
  */
-const CACHE = "saphal-dictionary-v6";
+const CACHE = "saphal-dictionary-v7";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -23,6 +23,8 @@ self.addEventListener("activate", (event) => {
     caches.keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: "window" }))
+      .then((clients) => clients.forEach((c) => c.postMessage({ type: "sd-updated" })))
   );
 });
 
@@ -34,8 +36,12 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
+    // The host tells browsers to keep the page for ten minutes. Left alone that
+    // means a fresh publish can take ten minutes to appear even though this is
+    // asking the network for it. "no-store" skips that browser copy entirely so
+    // an update shows the moment it is published.
     event.respondWith(
-      fetch(request)
+      fetch(request.url, { cache: "no-store" })
         .then((response) => {
           const copy = response.clone();
           caches.open(CACHE).then((cache) => cache.put("./index.html", copy));
