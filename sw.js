@@ -8,9 +8,28 @@
  * appears as soon as it is published, and falls back to the cached copy when
  * there is no signal. Icons and the manifest rarely change, so they are served
  * from the cache first.
+ *
+ * This worker sits at the root of the site, so it is offered every request on
+ * saphalism007.github.io - including ones belonging to other projects published
+ * in subdirectories. It therefore has to be careful to touch only its own files:
+ * see ownsPath below. Without that guard it would save a sibling project's page
+ * as this app's index.html and hand that back the next time the dictionary was
+ * opened offline.
  */
-const CACHE = "saphal-dictionary-v7";
+const PREFIX = "saphal-dictionary-";
+const CACHE = PREFIX + "v8";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
+
+/* True only for files that belong to the dictionary itself: the page at the
+   root, anything under icons/, and root level files such as the manifest.
+   A path with a directory of its own (/nepal-fs-compiler/...) is a different
+   project sharing this origin and is left entirely alone. */
+function ownsPath(pathname) {
+  if (pathname === "/" || pathname === "/index.html") return true;
+  const rest = pathname.slice(1);
+  if (rest.startsWith("icons/")) return true;
+  return rest.indexOf("/") === -1;
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -21,7 +40,12 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      /* Cache storage is shared across the whole origin, so only ever drop this
+         app's own old versions. Deleting every other key would wipe the offline
+         data of any sibling project published on this account. */
+      .then((keys) => Promise.all(
+        keys.filter((k) => k.startsWith(PREFIX) && k !== CACHE).map((k) => caches.delete(k))
+      ))
       .then(() => self.clients.claim())
       .then(() => self.clients.matchAll({ type: "window" }))
       .then((clients) => clients.forEach((c) => c.postMessage({ type: "sd-updated" })))
@@ -34,6 +58,7 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (!ownsPath(url.pathname)) return;   // another project's file - do not intercept
 
   if (request.mode === "navigate") {
     // The host tells browsers to keep the page for ten minutes. Left alone that
