@@ -17,7 +17,7 @@
  * opened offline.
  */
 const PREFIX = "saphal-dictionary-";
-const CACHE = PREFIX + "v8";
+const CACHE = PREFIX + "v9";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 /* True only for files that belong to the dictionary itself: the page at the
