@@ -28,7 +28,10 @@ function ownsPath(pathname) {
   if (pathname === "/" || pathname === "/index.html") return true;
   const rest = pathname.slice(1);
   if (rest.startsWith("icons/")) return true;
-  return rest.indexOf("/") === -1;
+  /* A root level name with no dot, such as /saphal-music without its closing
+     slash, is a sibling project's folder that GitHub is about to redirect.
+     Claiming it would store that project's page as the dictionary. */
+  return rest.indexOf("/") === -1 && rest.indexOf(".") !== -1;
 }
 
 self.addEventListener("install", (event) => {
