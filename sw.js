@@ -17,7 +17,7 @@
  * opened offline.
  */
 const PREFIX = "saphal-dictionary-";
-const CACHE = PREFIX + "v9";
+const CACHE = PREFIX + "v10";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 /* True only for files that belong to the dictionary itself: the page at the
@@ -36,7 +36,11 @@ function ownsPath(pathname) {
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      // no-store, so the copy kept is the one on GitHub now and not one the
+      // browser was told to hold on to for ten minutes.
+      .then((cache) => cache.addAll(SHELL.map((u) => new Request(u, { cache: "no-store" }))))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -49,9 +53,10 @@ self.addEventListener("activate", (event) => {
       .then((keys) => Promise.all(
         keys.filter((k) => k.startsWith(PREFIX) && k !== CACHE).map((k) => caches.delete(k))
       ))
+      // No message to open pages any more. It used to tell them to reload,
+      // so every update ran the opening twice, and on a phone with updates
+      // going out several times a day that was most openings.
       .then(() => self.clients.claim())
-      .then(() => self.clients.matchAll({ type: "window" }))
-      .then((clients) => clients.forEach((c) => c.postMessage({ type: "sd-updated" })))
   );
 });
 
@@ -64,18 +69,33 @@ self.addEventListener("fetch", (event) => {
   if (!ownsPath(url.pathname)) return;   // another project's file - do not intercept
 
   if (request.mode === "navigate") {
-    // The host tells browsers to keep the page for ten minutes. Left alone that
-    // means a fresh publish can take ten minutes to appear even though this is
-    // asking the network for it. "no-store" skips that browser copy entirely so
-    // an update shows the moment it is published.
+    // The copy on this device opens at once, with no wait for the network.
+    //
+    // It used to be the other way round: the page was fetched from GitHub on
+    // every opening and the copy here only used with no signal at all. The
+    // whole book is in that one page, about 800 KB, so on a phone that was a
+    // wait of seconds every time, and longer on a weak signal, because a slow
+    // connection is not a failed one and the copy here was never reached for.
+    //
+    // A fresh copy is fetched behind the one on screen (no-store skips the ten
+    // minutes GitHub asks browsers to keep it) and saved for the next opening.
+    // So a new batch of words shows the time after it is published, never
+    // half way through using the app.
+    const fresh = fetch(request.url, { cache: "no-store" }).then((response) => {
+      if (response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE).then((cache) => cache.put("./index.html", copy));
+      }
+      return response;
+    });
     event.respondWith(
-      fetch(request.url, { cache: "no-store" })
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put("./index.html", copy));
-          return response;
-        })
-        .catch(() => caches.match("./index.html").then((hit) => hit || caches.match("./")))
+      caches.match("./index.html").then((hit) => hit || caches.match("./")).then((saved) => {
+        if (saved) {
+          event.waitUntil(fresh.catch(() => {}));
+          return saved;
+        }
+        return fresh.catch(() => Response.error());
+      })
     );
     return;
   }
